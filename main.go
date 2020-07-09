@@ -61,10 +61,23 @@ func main() {
 		os.Chdir(flag.Arg(0))
 	}
 
+	infoList := GetFileInfoList(dir)
+
+	if srtMethod := GetSortMethodFromFlags(); srtMethod != SortNone {
+		SortFileInfo(infoList,srtMethod)
+	}
+
+	// FmtOutput adds a newline, so we don't do it again
+	fmt.Print(FmtOutput(FmtFileInfoList(infoList),
+			FmtOutputOptions{ExtraPadding: extraPadding} ))
+}
+
+func GetFileInfoList(dir string) FileInfoList {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		panic(err)
 	}
+
 	var totalSize int64 // only used if showTotal == true
 	var infoList = make(FileInfoList,len(files))
 	skipped := 0 // how many entries have been skipped
@@ -95,13 +108,7 @@ func main() {
 	if showTotal {
 		infoList = append(infoList, &FileInfo{Name: "total:",Size: totalSize})
 	}
-	if srtMethod := GetSortMethodFromFlags(); srtMethod != SortNone {
-		SortFileInfo(infoList,srtMethod)
-	}
-
-	// FmtOutput adds a newline, so we don't do it again
-	fmt.Print(FmtOutput(FmtFileInfoList(infoList),
-			FmtOutputOptions{ExtraPadding: extraPadding} ))
+	return infoList
 }
 
 func CalculateSize(dirpath string) int64 {
