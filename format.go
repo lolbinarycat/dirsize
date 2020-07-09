@@ -40,6 +40,7 @@ type FmtOutputOptions struct {
 	// ExtraPadding can be used to provide more distance between file names and sizes
 	ExtraPadding string
 }
+
 func FmtOutput(fInfo FileInfoOutList,opt FmtOutputOptions) string {
 	var maxNameLength int = 0
 

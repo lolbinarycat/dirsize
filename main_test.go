@@ -4,6 +4,8 @@ import (
 	"testing"
 	"math/rand"
 	"io/ioutil"
+
+	dirwalk "github.com/karrick/godirwalk"
 )
 
 const MaxRand = 50000
@@ -34,4 +36,8 @@ func BenchmarkReadDir(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ioutil.ReadDir(".")
 	}
+}
+
+func BenchmarkDirWalk(b *testing.B) {
+	dirwalk.Walk
 }

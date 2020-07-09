@@ -40,6 +40,7 @@ func init() {
 }
 
 var addSlashToDirs = true
+//var sortBySize = true
 
 var showHidden = false
 var extraPadding = ""
@@ -48,6 +49,8 @@ func init() {
 	flag.BoolVar(&showHidden, "a",false, "shows files starting with '.'")
 	flag.StringVar(&extraPadding, "pad","", "a string of text to use as extra padding between file names and sizes")
 	flag.BoolVar(&showTotal, "t", false, "show the total size of the directory")
+
+	flag.String("sort","none","sorting method")
 }
 
 
@@ -58,18 +61,19 @@ func main() {
 		os.Chdir(flag.Arg(0))
 	}
 
-	fmt.Println(os.Getwd())
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		panic(err)
 	}
 	var totalSize int64 // only used if showTotal == true
-	var outputArr = make(FileInfoList,len(files))
+	var infoArr = make(FileInfoList,len(files))
+	skipped := 0 // how many entries have been skipped
 	for i, f := range files {
 		if err != nil {
 			panic(err)
 		}
 		if !showHidden && f.Name()[0] == '.' {
+			skipped++
 			continue
 		}
 		var size int64
@@ -84,16 +88,19 @@ func main() {
 		if showTotal {
 			totalSize += size
 		}
-		//fmtdSize := FormatFileSize(size)
-		outputArr[i] = &FileInfo{f.Name(),size,isDir}
-	}
-	if showTotal {
-		outputArr = append(outputArr, &FileInfo{Name: "total:",Size: totalSize})
-	}
 
+		infoArr[i-skipped] = &FileInfo{f.Name(),size,isDir}
+	}
+	infoArr = infoArr[:len(infoArr)-skipped]
+	if showTotal {
+		infoArr = append(infoArr, &FileInfo{Name: "total:",Size: totalSize})
+	}
+	if srtMethod := GetSortMethodFromFlags(); srtMethod != SortNone {
+		SortFileInfo(infoArr,srtMethod)
+	}
 
 	// FmtOutput adds a newline, so we don't do it again
-	fmt.Print(FmtOutput(FmtFileInfoList(outputArr),
+	fmt.Print(FmtOutput(FmtFileInfoList(infoArr),
 			FmtOutputOptions{ExtraPadding: extraPadding} ))
 }
 
