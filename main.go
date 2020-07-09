@@ -2,18 +2,29 @@ package main
 
 
 import (
-	"os"
 	"io/ioutil"
-	"path/filepath"
-	"fmt"
+	"os"
+	//"io/ioutil"
 	"flag"
+	"fmt"
+	"path/filepath"
 	"strings"
+
+	//"time"
+	"github.com/karrick/godirwalk"
+	dirwalk "github.com/karrick/godirwalk"
 )
 
 // FileInfoOut is a struct with the strings to print.
 // This is stored first so spacing can be correctly calculated.
 type FileInfoOut struct {
 	Name, Size string
+}
+
+var scratchBuffer []byte
+
+func init() {
+	scratchBuffer = make([]byte,godirwalk.MinimumScratchBufferSize)
 }
 
 var showHidden = false
@@ -28,10 +39,12 @@ func init() {
 
 func main() {
 	flag.Parse()
-	var dir string = flag.Arg(0)
-	if dir == "" {
-		dir = "."
+	var dir string = "."
+	if flag.Arg(0) != "" {
+		os.Chdir(flag.Arg(0))
 	}
+
+	fmt.Println(os.Getwd())
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		panic(err)
@@ -39,6 +52,9 @@ func main() {
 	var totalSize int64 // only used if showTotal == true
 	var outputArr = make([]FileInfoOut,len(files))
 	for i, f := range files {
+		if err != nil {
+			panic(err)
+		}
 		if !showHidden && f.Name()[0] == '.' {
 			continue
 		}
@@ -66,12 +82,33 @@ func main() {
 func CalculateSize(dirpath string) int64 {
 	var size int64 = 0 // size in bytes
 
-	filepath.Walk(dirpath,func (path string, info os.FileInfo, err error) error {
+	/*filepath.Walk(dirpath,func (path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
 		}
 		size += info.Size()
 		return nil
+	})*/
+
+	dirwalk.Walk(dirpath, &dirwalk.Options{
+		Callback: func (path string, entry *dirwalk.Dirent) error {
+			isDirOrSym, err :=  entry.IsDirOrSymlinkToDir()
+			if err != nil {
+				return err
+			}
+			if isDirOrSym {
+				return nil
+			} else {
+				stat, err := os.Lstat(path)
+				if err != nil {
+					return err
+				}
+				size += stat.Size()
+				return nil
+			}
+		},
+		Unsorted: true,
+		ScratchBuffer: scratchBuffer,
 	})
 	return size
 }
