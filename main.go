@@ -66,7 +66,7 @@ func main() {
 		panic(err)
 	}
 	var totalSize int64 // only used if showTotal == true
-	var infoArr = make(FileInfoList,len(files))
+	var infoList = make(FileInfoList,len(files))
 	skipped := 0 // how many entries have been skipped
 	for i, f := range files {
 		if err != nil {
@@ -89,18 +89,18 @@ func main() {
 			totalSize += size
 		}
 
-		infoArr[i-skipped] = &FileInfo{f.Name(),size,isDir}
+		infoList[i-skipped] = &FileInfo{f.Name(),size,isDir}
 	}
-	infoArr = infoArr[:len(infoArr)-skipped]
+	infoList = infoList[:len(infoList)-skipped]
 	if showTotal {
-		infoArr = append(infoArr, &FileInfo{Name: "total:",Size: totalSize})
+		infoList = append(infoList, &FileInfo{Name: "total:",Size: totalSize})
 	}
 	if srtMethod := GetSortMethodFromFlags(); srtMethod != SortNone {
-		SortFileInfo(infoArr,srtMethod)
+		SortFileInfo(infoList,srtMethod)
 	}
 
 	// FmtOutput adds a newline, so we don't do it again
-	fmt.Print(FmtOutput(FmtFileInfoList(infoArr),
+	fmt.Print(FmtOutput(FmtFileInfoList(infoList),
 			FmtOutputOptions{ExtraPadding: extraPadding} ))
 }
 
