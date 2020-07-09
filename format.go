@@ -6,7 +6,11 @@ import 	(
 )
 
 func FmtFileInfo(info FileInfo) FileInfoOut {
-	return FileInfoOut{info.Name,FmtFileSize(info.Size)}
+	name := info.Name
+	if addSlashToDirs && info.IsDir {
+		name += "/"
+	}
+	return FileInfoOut{name,FmtFileSize(info.Size)}
 }
 
 func FmtFileInfoList(list FileInfoList) FileInfoOutList {

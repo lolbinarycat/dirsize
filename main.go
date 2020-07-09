@@ -27,6 +27,7 @@ type FileInfoOutList []FileInfoOut
 type FileInfo struct {
 	Name string
 	Size int64
+	IsDir bool
 }
 
 type FileInfoList []*FileInfo
@@ -37,6 +38,8 @@ var scratchBuffer []byte
 func init() {
 	scratchBuffer = make([]byte,godirwalk.MinimumScratchBufferSize)
 }
+
+var addSlashToDirs = true
 
 var showHidden = false
 var extraPadding = ""
@@ -70,16 +73,19 @@ func main() {
 			continue
 		}
 		var size int64
+		var isDir bool
 		if f.IsDir() {
 			size = CalculateSize(filepath.Join(dir,f.Name()))
+			isDir = true
 		} else {
 			size = f.Size()
+			isDir = false
 		}
 		if showTotal {
 			totalSize += size
 		}
 		//fmtdSize := FormatFileSize(size)
-		outputArr[i] = &FileInfo{f.Name(),size}
+		outputArr[i] = &FileInfo{f.Name(),size,isDir}
 	}
 	if showTotal {
 		outputArr = append(outputArr, &FileInfo{Name: "total:",Size: totalSize})
