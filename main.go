@@ -4,11 +4,13 @@ package main
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
+
 	//"io/ioutil"
 	"flag"
 	"fmt"
-	"path/filepath"
 
+	//"path/filepath"
 
 	//"time"
 	"github.com/karrick/godirwalk"
@@ -82,29 +84,30 @@ func GetFileInfoList(dir string) FileInfoList {
 	var infoList = make(FileInfoList,len(files))
 	skipped := 0 // how many entries have been skipped
 	for i, f := range files {
-		if err != nil {
-			panic(err)
-		}
 		if !showHidden && f.Name()[0] == '.' {
 			skipped++
 			continue
 		}
-		var size int64
-		var isDir bool
+		var fInfo FileInfo
+		//var size int64
+		//var isDir bool
 		if f.IsDir() {
-			size = CalculateSize(filepath.Join(dir,f.Name()))
-			isDir = true
+			fInfo.Size = CalculateSize(filepath.Join(dir,f.Name()))
+			fInfo.IsDir = true
 		} else {
-			size = f.Size()
-			isDir = false
+			fInfo.Size = f.Size()
+			fInfo.IsDir = false
 		}
 		if showTotal {
-			totalSize += size
+			totalSize += fInfo.Size
 		}
-
-		infoList[i-skipped] = &FileInfo{f.Name(),size,isDir}
+		fInfo.Name = f.Name()
+		infoList[i-skipped] = &fInfo//&FileInfo{f.Name(),size,isDir}
 	}
-	infoList = infoList[:len(infoList)-skipped]
+	if skipped != 0 {
+		infoList = infoList[:len(infoList)-skipped]
+	}
+	
 	if showTotal {
 		infoList = append(infoList, &FileInfo{Name: "total:",Size: totalSize})
 	}
@@ -112,7 +115,7 @@ func GetFileInfoList(dir string) FileInfoList {
 }
 
 func CalculateSize(dirpath string) int64 {
-	var size int64 = 0 // size in bytes
+	
 
 	/*filepath.Walk(dirpath,func (path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
@@ -121,7 +124,7 @@ func CalculateSize(dirpath string) int64 {
 		size += info.Size()
 		return nil
 	})*/
-
+	var size int64 = 0 // size in bytes
 	dirwalk.Walk(dirpath, &dirwalk.Options{
 		Callback: func (path string, entry *dirwalk.Dirent) error {
 			isDirOrSym, err :=  entry.IsDirOrSymlinkToDir()
