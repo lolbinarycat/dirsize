@@ -14,7 +14,7 @@ import (
 
 	//"time"
 	"github.com/karrick/godirwalk"
-	dirwalk "github.com/karrick/godirwalk"
+
 )
 
 // FileInfoOut is a struct with the info to print.
@@ -47,11 +47,13 @@ var addSlashToDirs = true
 var showHidden = false
 var extraPadding = ""
 var showTotal bool
+var hideSize bool
 func init() {
 	flag.BoolVar(&showHidden, "a",false, "shows files starting with '.'")
 	flag.StringVar(&extraPadding, "pad","", "a string of text to use as extra padding between file names and sizes")
 	flag.BoolVar(&showTotal, "t", false, "show the total size of the directory")
-
+	flag.BoolVar(&showTotal, "total", false, "show the total size of the directory")
+	flag.BoolVar(&hideSize,"hide-size",false,"hide the sizes of files. ")
 	flag.String("sort","none","sorting method")
 }
 
@@ -62,19 +64,30 @@ func main() {
 	if flag.Arg(0) != "" {
 		os.Chdir(flag.Arg(0))
 	}
-
-	infoList := GetFileInfoList(dir)
+	//showSize := !hideSize
+	infoList := GetFileInfoList(dir,
+		GetFileInfoListOpts{IgnoreHiddenFiles: !showHidden,
+		GetSizes: !hideSize})
 
 	if srtMethod := GetSortMethodFromFlags(); srtMethod != SortNone {
 		SortFileInfo(infoList,srtMethod)
 	}
 
 	// FmtOutput adds a newline, so we don't do it again
-	fmt.Print(FmtOutput(FmtFileInfoList(infoList),
-			FmtOutputOptions{ExtraPadding: extraPadding} ))
+	fmt.Print(
+		FmtOutput(
+			FmtFileInfoList(infoList,
+				FmtFileInfoOpts{DirSuffix:"/",ShowSize:!hideSize}),
+			FmtOutputOpts{ExtraPadding: extraPadding},
+		),
+	)
 }
 
-func GetFileInfoList(dir string) FileInfoList {
+type GetFileInfoListOpts struct {
+	IgnoreHiddenFiles bool
+	GetSizes bool
+}
+func GetFileInfoList(dir string, opts GetFileInfoListOpts) FileInfoList {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		panic(err)
@@ -84,7 +97,7 @@ func GetFileInfoList(dir string) FileInfoList {
 	var infoList = make(FileInfoList,len(files))
 	skipped := 0 // how many entries have been skipped
 	for i, f := range files {
-		if !showHidden && f.Name()[0] == '.' {
+		if opts.IgnoreHiddenFiles && f.Name()[0] == '.' {
 			skipped++
 			continue
 		}
@@ -92,10 +105,15 @@ func GetFileInfoList(dir string) FileInfoList {
 		//var size int64
 		//var isDir bool
 		if f.IsDir() {
-			fInfo.Size = CalculateSize(filepath.Join(dir,f.Name()))
+			if opts.GetSizes {
+				fInfo.Size = CalculateSize(filepath.Join(dir,f.Name()))
+			}
 			fInfo.IsDir = true
 		} else {
-			fInfo.Size = f.Size()
+			if opts.GetSizes {
+				fInfo.Size = f.Size()
+			}
+
 			fInfo.IsDir = false
 		}
 		if showTotal {
@@ -114,41 +132,6 @@ func GetFileInfoList(dir string) FileInfoList {
 	return infoList
 }
 
-func CalculateSize(dirpath string) int64 {
-	
 
-	/*filepath.Walk(dirpath,func (path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		size += info.Size()
-		return nil
-	})*/
-	var size int64 = 0 // size in bytes
-	dirwalk.Walk(dirpath, &dirwalk.Options{
-		Callback: func (path string, entry *dirwalk.Dirent) error {
-			isDirOrSym, err :=  entry.IsDirOrSymlinkToDir()
-			if err != nil {
-				return err
-			}
-			if isDirOrSym {
-				return nil
-			} else {
-				stat, err := os.Lstat(path)
-				if err != nil {
-					return err
-				}
-				size += stat.Size()
-				return nil
-			}
-		},
-		Unsorted: true,
-		ScratchBuffer: scratchBuffer,
-	})
-	return size
-}
 
 var MetricBinarySuffixes = [...]string{"B","kiB","MiB","GiB"}
-
-
-
