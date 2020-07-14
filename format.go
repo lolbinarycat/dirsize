@@ -4,16 +4,24 @@ import 	(
 	"fmt"
 	"strings"
 )
-
-func FmtFileInfo(info FileInfo) FileInfoOut {
-	name := info.Name
-	if addSlashToDirs && info.IsDir {
-		name += "/"
-	}
-	return FileInfoOut{name,FmtFileSize(info.Size)}
+type FmtFileInfoOpts struct {
+	DirSuffix string
+	ShowSize bool
 }
 
-func FmtFileInfoList(list FileInfoList) FileInfoOutList {
+func FmtFileInfo(info FileInfo, opts FmtFileInfoOpts) FileInfoOut {
+	var infoOut FileInfoOut
+	infoOut.Name = info.Name
+	if info.IsDir {
+		infoOut.Name += opts.DirSuffix
+	}
+	if opts.ShowSize {
+		infoOut.Size = FmtFileSize(info.Size)
+	}
+	return infoOut
+}
+
+func FmtFileInfoList(list FileInfoList, opts FmtFileInfoOpts) FileInfoOutList {
 	outList := make(FileInfoOutList,len(list))
 	nilEnts := 0
 	for i, m := range list {
@@ -21,7 +29,7 @@ func FmtFileInfoList(list FileInfoList) FileInfoOutList {
 			nilEnts++
 			continue
 		}
-		out := FmtFileInfo(*m)
+		out := FmtFileInfo(*m,opts)
 		outList[i-nilEnts] = out
 	}
 	return outList
@@ -36,12 +44,12 @@ func FmtFileSize(size int64) string {
 	return fmt.Sprintf("%d%v",size,MetricBinarySuffixes[i])
 }
 
-type FmtOutputOptions struct {
+type FmtOutputOpts struct {
 	// ExtraPadding can be used to provide more distance between file names and sizes
 	ExtraPadding string
 }
 
-func FmtOutput(fInfo FileInfoOutList,opt FmtOutputOptions) string {
+func FmtOutput(fInfo FileInfoOutList,opt FmtOutputOpts) string {
 	var maxNameLength int = 0
 
 	for _, inf := range fInfo {
@@ -80,5 +88,21 @@ func FmtOutput(fInfo FileInfoOutList,opt FmtOutputOptions) string {
 		bldr.WriteString(inf.Size)
 		bldr.WriteRune('\n')
 	}
+	return bldr.String()
+}
+
+func FmtProgress(prog uint8,width uint8) string {
+	bldr := strings.Builder{}
+	bldr.Grow(int(width+2))
+	bldr.WriteRune('[')
+	progStep := 255/width
+	for i:=uint8(0);i<width;i++{
+		if i*progStep < prog {
+			bldr.WriteRune('=')
+		} else {
+			bldr.WriteRune(' ')
+		}
+	}
+	bldr.WriteRune(']')
 	return bldr.String()
 }

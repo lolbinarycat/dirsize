@@ -1,6 +1,5 @@
 package main
 
-
 import (
 	"io/ioutil"
 	"os"
@@ -14,7 +13,6 @@ import (
 
 	//"time"
 	"github.com/karrick/godirwalk"
-
 )
 
 // FileInfoOut is a struct with the info to print.
@@ -27,36 +25,38 @@ type FileInfoOutList []FileInfoOut
 // FileInfo is the type used before Size is formatted into a string
 // Mostly used to be sorted
 type FileInfo struct {
-	Name string
-	Size int64
+	Name  string
+	Size  int64
 	IsDir bool
 }
 
 type FileInfoList []*FileInfo
 
-
 var scratchBuffer []byte
 
 func init() {
-	scratchBuffer = make([]byte,godirwalk.MinimumScratchBufferSize)
+	scratchBuffer = make([]byte, godirwalk.MinimumScratchBufferSize)
 }
 
 var addSlashToDirs = true
+
 //var sortBySize = true
 
 var showHidden = false
 var extraPadding = ""
 var showTotal bool
 var hideSize bool
+var progressBar bool
+
 func init() {
-	flag.BoolVar(&showHidden, "a",false, "shows files starting with '.'")
-	flag.StringVar(&extraPadding, "pad","", "a string of text to use as extra padding between file names and sizes")
+	flag.BoolVar(&showHidden, "a", false, "shows files starting with '.'")
+	flag.StringVar(&extraPadding, "pad", "", "a string of text to use as extra padding between file names and sizes")
 	flag.BoolVar(&showTotal, "t", false, "show the total size of the directory")
 	flag.BoolVar(&showTotal, "total", false, "show the total size of the directory")
-	flag.BoolVar(&hideSize,"hide-size",false,"hide the sizes of files. ")
-	flag.String("sort","none","sorting method")
+	flag.BoolVar(&hideSize, "hide-size", false, "hide the sizes of files. ")
+	flag.BoolVar(&progressBar, "p", false, "show a bar indecating progress")
+	flag.String("sort", "none", "sorting method")
 }
-
 
 func main() {
 	flag.Parse()
@@ -65,39 +65,49 @@ func main() {
 		os.Chdir(flag.Arg(0))
 	}
 	//showSize := !hideSize
-	infoList := GetFileInfoList(dir,
-		GetFileInfoListOpts{IgnoreHiddenFiles: !showHidden,
-		GetSizes: !hideSize})
+	progress := make(chan uint8, 255)
+	var infoList FileInfoList
+	done := make(chan struct{}) // saftey channel
+	go func() { infoList = GetFileInfoList(dir, progress); done <- struct{}{} }()
+	if progressBar {
+		for {
+			prog := <-progress
+			fmt.Printf("\r%s", FmtProgress(prog, 10))
+			if prog == 255 {
+				break
+			}
+		}
+		fmt.Print("\n")
+	}
+	<-done
 
 	if srtMethod := GetSortMethodFromFlags(); srtMethod != SortNone {
-		SortFileInfo(infoList,srtMethod)
+		SortFileInfo(infoList, srtMethod)
 	}
 
 	// FmtOutput adds a newline, so we don't do it again
+
 	fmt.Print(
 		FmtOutput(
 			FmtFileInfoList(infoList,
-				FmtFileInfoOpts{DirSuffix:"/",ShowSize:!hideSize}),
+				FmtFileInfoOpts{DirSuffix: "/", ShowSize: !hideSize}),
 			FmtOutputOpts{ExtraPadding: extraPadding},
 		),
 	)
 }
 
-type GetFileInfoListOpts struct {
-	IgnoreHiddenFiles bool
-	GetSizes bool
-}
-func GetFileInfoList(dir string, opts GetFileInfoListOpts) FileInfoList {
+func GetFileInfoList(dir string, progress chan uint8) FileInfoList {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		panic(err)
 	}
-
+	var progStep uint8 = 255 / uint8(len(files))
 	var totalSize int64 // only used if showTotal == true
-	var infoList = make(FileInfoList,len(files))
+	var infoList = make(FileInfoList, len(files))
 	skipped := 0 // how many entries have been skipped
 	for i, f := range files {
-		if opts.IgnoreHiddenFiles && f.Name()[0] == '.' {
+		progress <- progStep * uint8(i)
+		if showHidden == false && f.Name()[0] == '.' {
 			skipped++
 			continue
 		}
@@ -105,12 +115,12 @@ func GetFileInfoList(dir string, opts GetFileInfoListOpts) FileInfoList {
 		//var size int64
 		//var isDir bool
 		if f.IsDir() {
-			if opts.GetSizes {
-				fInfo.Size = CalculateSize(filepath.Join(dir,f.Name()))
+			if !hideSize {
+				fInfo.Size = CalculateSize(filepath.Join(dir, f.Name()))
 			}
 			fInfo.IsDir = true
 		} else {
-			if opts.GetSizes {
+			if !hideSize {
 				fInfo.Size = f.Size()
 			}
 
@@ -120,18 +130,17 @@ func GetFileInfoList(dir string, opts GetFileInfoListOpts) FileInfoList {
 			totalSize += fInfo.Size
 		}
 		fInfo.Name = f.Name()
-		infoList[i-skipped] = &fInfo//&FileInfo{f.Name(),size,isDir}
+		infoList[i-skipped] = &fInfo //&FileInfo{f.Name(),size,isDir}
 	}
 	if skipped != 0 {
 		infoList = infoList[:len(infoList)-skipped]
 	}
-	
+
 	if showTotal {
-		infoList = append(infoList, &FileInfo{Name: "total:",Size: totalSize})
+		infoList = append(infoList, &FileInfo{Name: "total:", Size: totalSize})
 	}
+	progress <- 255
 	return infoList
 }
 
-
-
-var MetricBinarySuffixes = [...]string{"B","kiB","MiB","GiB"}
+var MetricBinarySuffixes = [...]string{"B", "kiB", "MiB", "GiB"}
