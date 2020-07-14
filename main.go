@@ -70,6 +70,7 @@ func main() {
 	done := make(chan struct{}) // saftey channel
 	go func() { infoList = GetFileInfoList(dir, progress); done <- struct{}{} }()
 	if progressBar {
+		fmt.Print("...")
 		for {
 			prog := <-progress
 			fmt.Printf("\r%s", FmtProgress(prog, 10))
